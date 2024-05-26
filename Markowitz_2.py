@@ -9,6 +9,7 @@ import quantstats as qs
 import gurobipy as gp
 import warnings
 import argparse
+from scipy.optimize import minimize
 
 """
 Project Setup
@@ -70,18 +71,28 @@ class MyPortfolio:
         self.portfolio_weights = pd.DataFrame(
             index=self.price.index, columns=self.price.columns
         )
-
         """
         TODO: Complete Task 4 Below
         """
 
-        """
-        TODO: Complete Task 4 Above
-        """
+        for date in self.returns.index[self.lookback:]:
+            past_returns = self.returns.loc[date - pd.DateOffset(days=self.lookback):date, assets]
+            mean_returns = past_returns.mean()
+            cov_matrix = past_returns.cov()
 
-        self.portfolio_weights.ffill(inplace=True)
-        self.portfolio_weights.fillna(0, inplace=True)
+            def objective(w):
+                return -w @ mean_returns / (w.T @ cov_matrix @ w)**0.5
 
+            constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1}]
+            bounds = [(0, 1) for _ in assets]
+            # Need to import scipy (1.13.1)
+            result = minimize(objective, x0=np.array([1/len(assets)]*len(assets)), bounds=bounds, constraints=constraints)
+
+            if result.success:
+                self.portfolio_weights.loc[date, assets] = result.x
+            else:
+                self.portfolio_weights.loc[date, assets] = np.nan
+                
     def calculate_portfolio_returns(self):
         # Ensure weights are calculated
         if not hasattr(self, "portfolio_weights"):
@@ -104,6 +115,11 @@ class MyPortfolio:
         return self.portfolio_weights, self.portfolio_returns
 
 
+        """
+        TODO: Complete Task 4 Above
+        """
+        self.portfolio_weights.ffill(inplace=True)
+        self.portfolio_weights.fillna(0, inplace=True)
 """
 Assignment Judge
 

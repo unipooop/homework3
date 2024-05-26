@@ -66,7 +66,9 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
-
+        weight = 1 / len(assets)
+        for asset in assets:
+            self.portfolio_weights[asset] = weight
         """
         TODO: Complete Task 1 Above
         """
@@ -117,6 +119,20 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
+        rolling_volatilities = df_returns[assets].rolling(window=self.lookback).std().shift(1)
+        #print("Rolling Volatilities")
+        #print(rolling_volatilities.head(60))
+        inverse_volatilities = 1 / rolling_volatilities
+        sum_inverse_volatilities = inverse_volatilities.sum(axis=1)
+
+        self.portfolio_weights = pd.DataFrame(index=df_returns.index, columns=df_returns.columns, data=0)
+
+        for asset in assets:
+            self.portfolio_weights[asset] = inverse_volatilities[asset] / sum_inverse_volatilities
+
+        zero_date = '2019-03-15'#?????????
+        self.portfolio_weights.loc[:zero_date] = 0
+
 
         """
         TODO: Complete Task 2 Above
@@ -145,7 +161,6 @@ class RiskParityPortfolio:
             self.calculate_portfolio_returns()
 
         return self.portfolio_weights, self.portfolio_returns
-
 
 """
 Problem 3:
@@ -189,11 +204,17 @@ class MeanVariancePortfolio:
                 """
                 TODO: Complete Task 3 Below
                 """
+                # Decision variables: weights of the assets
+                w = model.addMVar(shape=n, lb=0, name="w")
 
-                # Sample Code: Initialize Decision w and the Objective
-                # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                # Objective function: maximize (w.T * mu - (gamma/2) * w.T * Sigma * w)
+                portfolio_return = mu @ w
+                portfolio_risk = w @ Sigma @ w
+                objective = portfolio_return - (gamma / 2) * portfolio_risk
+                model.setObjective(objective, gp.GRB.MAXIMIZE)
+
+                # Constraints: sum of weights equals to 1
+                model.addConstr(w.sum() == 1, name="budget")
 
                 """
                 TODO: Complete Task 3 Below
